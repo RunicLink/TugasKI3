@@ -22,7 +22,7 @@ def derive_des_key(shared_secret_int):
     return key_str
 
 
-HOST = '0.0.0.0'
+HOST = '127.0.0.1'
 PORT = 65432
 
 def start_server():
@@ -48,15 +48,17 @@ def start_server():
                 B_str = conn.recv(2048).decode('utf-8')
                 B = int(B_str)
                 print(f"Menerima kunci publik (B) dari Device 2.")
-
+                print(f"Public Key B: {B}")
                 conn.sendall(str(A).encode('utf-8'))
                 print(f"Mengirim kunci publik (A) ke Device 2.")
+                print(f"Public Key A: {A}")
                 
                 print("Menghitung shared secret (S = B^a mod P)...")
                 S = pow(B, a, P)
-                
+                print(f"Shared Secret (S): {S}")    
                 KEY = derive_des_key(S)
                 print("\n*** Kunci DES berhasil disepakati! ***\n")
+                print(f"DES Key: {KEY}\n")
                 
             except Exception as e:
                 print(f"Error saat pertukaran kunci: {e}")
@@ -118,16 +120,17 @@ def start_client():
         try:
             s.sendall(str(B).encode('utf-8'))
             print(f"Mengirim kunci publik (B) ke Device 1.")
-
+            print(f"Public Key B: {B}")
             A_str = s.recv(2048).decode('utf-8')
             A = int(A_str)
             print(f"Menerima kunci publik (A) dari Device 1.")
-            
+            print(f"Public Key A: {A}")
             print("Menghitung shared secret (S = A^b mod P)...")
             S = pow(A, b, P)
-            
+            print(f"Shared Secret (S): {S}")
             KEY = derive_des_key(S)
             print("\n*** Kunci DES berhasil disepakati! ***\n")
+            print(f"DES Key: {KEY}\n")
             
         except Exception as e:
             print(f"Error saat pertukaran kunci: {e}")
