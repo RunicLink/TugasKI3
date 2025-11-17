@@ -3,17 +3,14 @@ import sys
 import random
 import hashlib
 from des_logic import run_des
+from rsa_logic import generate_keypair
 
-P = 23
-G = 5
 
 def derive_des_key(shared_secret_int):
+    """Fungsi ini tetap sama, tidak perlu diubah."""
     s_bytes = str(shared_secret_int).encode('utf-8')
-    
     hash_bytes = hashlib.sha256(s_bytes).digest()
-    
     key_bytes = hash_bytes[:8]
-    
     key_str = key_bytes.decode('latin-1')
     
     if len(key_str) != 8:
@@ -22,17 +19,23 @@ def derive_des_key(shared_secret_int):
     return key_str
 
 
-HOST = '127.0.0.1'
+HOST = '127.0.0.1' 
 PORT = 65432
 
 def start_server():
-    """Berperan sebagai Device 1 (Server) - Menerima dulu, baru membalas."""
+    """Berperan sebagai Device 1 (Server) - Membuat Keypair RSA."""
     
     print("--- Device 1 (Server) ---")
-    print("Generating private key (a)...")
-    a = random.getrandbits(256) 
-    print("Generating public key (A = G^a mod P)...")
-    A = pow(G, a, P) 
+    print("Generating RSA keypair (p=61, q=53)...")
+    try:
+        public_key, private_key = generate_keypair()
+        e, n = public_key
+        d, _ = private_key
+        print(f"Public Key (e, n): ({e}, {n})")
+        print(f"Private Key (d, n): ({d}, {n})")
+    except Exception as e_gen:
+        print(f"Error saat generate key: {e_gen}")
+        return
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
@@ -42,26 +45,33 @@ def start_server():
         with conn:
             print(f"Terhubung dengan Device 2 di {addr}")
 
-            print("Memulai pertukaran kunci Diffie-Hellman...")
+            print("Memulai pertukaran kunci RSA...")
             
             try:
-                B_str = conn.recv(2048).decode('utf-8')
-                B = int(B_str)
-                print(f"Menerima kunci publik (B) dari Device 2.")
-                print(f"Public Key B: {B}")
-                conn.sendall(str(A).encode('utf-8'))
-                print(f"Mengirim kunci publik (A) ke Device 2.")
-                print(f"Public Key A: {A}")
+                # 1. Kirim public key (e,n) ke Device 2
+                conn.sendall(f"{e},{n}".encode('utf-8'))
+                print(f"Mengirim kunci publik (e,n) ke Device 2.")
+
+                # 2. Terima 'C' (secret terenkripsi) dari Device 2
+                C_str = conn.recv(2048).decode('utf-8')
+                if not C_str:
+                    print("Device 2 menutup koneksi sebelum pertukaran kunci selesai.")
+                    return
+                C = int(C_str)
+                print(f"Menerima secret terenkripsi (C) dari Device 2.")
                 
-                print("Menghitung shared secret (S = B^a mod P)...")
-                S = pow(B, a, P)
-                print(f"Shared Secret (S): {S}")    
+                # 3. Dekripsi C untuk mendapatkan S menggunakan private key (d)
+                print("Mendekripsi C menggunakan kunci privat (d,n) ...")
+                S = pow(C, d, n)
+                
+                # 4. Hasilkan Kunci DES dari S
                 KEY = derive_des_key(S)
-                print("\n*** Kunci DES berhasil disepakati! ***\n")
-                print(f"DES Key: {KEY}\n")
+                print(f"\n*** Shared Secret (S) = {S} ***")
+                print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***")
+                print("*** Kunci DES berhasil disepakati! ***\n")
                 
-            except Exception as e:
-                print(f"Error saat pertukaran kunci: {e}")
+            except Exception as e_key:
+                print(f"Error saat pertukaran kunci: {e_key}")
                 return
             
             print("Ketik 'q' untuk keluar kapan saja.\n")
@@ -74,7 +84,6 @@ def start_server():
                 
                 try:
                     print(f"Encrypted Message from Device 2: {data_hex}")
-
                     decrypted_msg = run_des(data_hex, KEY, 'decrypt')
                     print(f"[Device 2]: {decrypted_msg}\n")
                     
@@ -82,8 +91,8 @@ def start_server():
                         print("Device 2 meminta keluar.")
                         break
                         
-                except Exception as e:
-                    print(f"Error dekripsi: {e}. Data diterima: {data_hex}")
+                except Exception as e_dec:
+                    print(f"Error dekripsi: {e_dec}. Data diterima: {data_hex}")
                     continue 
 
                 msg_to_send = input("[Device 1] Balas: ")
@@ -98,13 +107,9 @@ def start_server():
                     break
 
 def start_client():
-    """Berperan sebagai Device 2 (Client) - Mengirim dulu, baru menerima balasan."""
+    """Berperan sebagai Device 2 (Client) - Mengenkripsi secret S."""
     
     print(f"--- Device 2 (Client) ---")
-    print("Generating private key (b)...")
-    b = random.getrandbits(256) 
-    print("Generating public key (B = G^b mod P)...")
-    B = pow(G, b, P) 
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
@@ -114,26 +119,38 @@ def start_client():
             return
             
         print(f"Terhubung ke Device 1.")
-
-        print("Memulai pertukaran kunci Diffie-Hellman...")
+        print("Memulai pertukaran kunci RSA...")
         
         try:
-            s.sendall(str(B).encode('utf-8'))
-            print(f"Mengirim kunci publik (B) ke Device 1.")
-            print(f"Public Key B: {B}")
-            A_str = s.recv(2048).decode('utf-8')
-            A = int(A_str)
-            print(f"Menerima kunci publik (A) dari Device 1.")
-            print(f"Public Key A: {A}")
-            print("Menghitung shared secret (S = A^b mod P)...")
-            S = pow(A, b, P)
-            print(f"Shared Secret (S): {S}")
+            # 1. Terima public key (e,n) dari Device 1
+            e_n_str = s.recv(2048).decode('utf-8')
+            if not e_n_str:
+                print("Device 1 menutup koneksi sebelum pertukaran kunci selesai.")
+                return
+            e, n = map(int, e_n_str.split(','))
+            print(f"Menerima kunci publik (e, n) = ({e}, {n}) dari Device 1.")
+
+            # 2. Generate shared secret acak (S)
+            S = random.randint(1, n - 1) # S harus < n
+            print(f"Menghasilkan shared secret acak (S) = {S}")
+            
+            # 3. Enkripsi S menggunakan public key (e,n) -> C
+            print("Mengenkripsi S menggunakan kunci publik (e,n) ...")
+            C = pow(S, e, n)
+            
+            # 4. Kirim C ke Device 1
+            s.sendall(str(C).encode('utf-8'))
+            print(f"Mengirim secret terenkripsi (C) ke Device 1.")
+            
+            # 5. Hitung Kunci DES
             KEY = derive_des_key(S)
+            print(f"\n*** Shared Secret (S) = {S} ***") # <-- BARIS TAMBAHAN
+            print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***")
             print("\n*** Kunci DES berhasil disepakati! ***\n")
             print(f"DES Key: {KEY}\n")
             
-        except Exception as e:
-            print(f"Error saat pertukaran kunci: {e}")
+        except Exception as e_key:
+            print(f"Error saat pertukaran kunci: {e_key}")
             return
         
         print("Ketik 'q' untuk keluar kapan saja.\n")
@@ -157,7 +174,6 @@ def start_client():
 
             try:
                 print(f"Encrypted Message from Device 1: {data_hex}")
-
                 decrypted_msg = run_des(data_hex, KEY, 'decrypt')
                 print(f"[Device 1]: {decrypted_msg} \n")
                 
@@ -165,12 +181,11 @@ def start_client():
                     print("Device 1 meminta keluar.")
                     break
                     
-            except Exception as e:
-                print(f"Error dekripsi: {e}. Data diterima: {data_hex}")
+            except Exception as e_dec:
+                print(f"Error dekripsi: {e_dec}. Data diterima: {data_hex}")
                 continue 
 
 if __name__ == "__main__":
-        
     choice = input("Pilih peran Anda (1=Device 1/Server, 2=Device 2/Client): ").strip()
     
     if choice == '1':
