@@ -3,8 +3,7 @@ import sys
 import random
 import hashlib
 from des_logic import run_des
-from rsa_logic import generate_keypair
-
+from rsa_logic import generate_keypair  
 
 def derive_des_key(shared_secret_int):
     """Fungsi ini tetap sama, tidak perlu diubah."""
@@ -67,7 +66,7 @@ def start_server():
                 # 4. Hasilkan Kunci DES dari S
                 KEY = derive_des_key(S)
                 print(f"\n*** Shared Secret (S) = {S} ***")
-                print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***")
+                print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***") # <-- BARIS TAMBAHAN
                 print("*** Kunci DES berhasil disepakati! ***\n")
                 
             except Exception as e_key:
@@ -145,9 +144,8 @@ def start_client():
             # 5. Hitung Kunci DES
             KEY = derive_des_key(S)
             print(f"\n*** Shared Secret (S) = {S} ***") # <-- BARIS TAMBAHAN
-            print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***")
-            print("\n*** Kunci DES berhasil disepakati! ***\n")
-            print(f"DES Key: {KEY}\n")
+            print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***") # <-- BARIS TAMBAHAN
+            print("*** Kunci DES berhasil disepakati! ***\n")
             
         except Exception as e_key:
             print(f"Error saat pertukaran kunci: {e_key}")
