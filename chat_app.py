@@ -66,7 +66,7 @@ def start_server():
                 # 4. Hasilkan Kunci DES dari S
                 KEY = derive_des_key(S)
                 print(f"\n*** Shared Secret (S) = {S} ***")
-                print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***") # <-- BARIS TAMBAHAN
+                print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***") 
                 print("*** Kunci DES berhasil disepakati! ***\n")
                 
             except Exception as e_key:
@@ -143,8 +143,8 @@ def start_client():
             
             # 5. Hitung Kunci DES
             KEY = derive_des_key(S)
-            print(f"\n*** Shared Secret (S) = {S} ***") # <-- BARIS TAMBAHAN
-            print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***") # <-- BARIS TAMBAHAN
+            print(f"\n*** Shared Secret (S) = {S} ***") 
+            print(f"*** Kunci DES yang Dihasilkan: {repr(KEY)} ***") 
             print("*** Kunci DES berhasil disepakati! ***\n")
             
         except Exception as e_key:
